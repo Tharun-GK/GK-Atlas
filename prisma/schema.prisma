@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String
+  website     String?
+  country     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  models      Model[]
+
+  @@index([slug])
+}
+
+model Provider {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  slug        String          @unique
+  description String
+  website     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  modelLinks  ModelProvider[]
+
+  @@index([slug])
+}
+
+model Model {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  description     String
+  modelType       String
+  contextWindow   Int
+  maxOutputTokens Int?
+  releaseDate     DateTime
+  featured        Boolean          @default(false)
+  trending        Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  companyId       String
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  providers       ModelProvider[]
+  capabilities    ModelCapability[]
+  benchmarks      ModelBenchmark[]
+  prices          Pricing[]
+
+  @@unique([companyId, name])
+  @@index([releaseDate])
+  @@index([contextWindow])
+  @@index([modelType])
+  @@index([featured, trending])
+}
+
+model ModelProvider {
+  id         String   @id @default(cuid())
+  modelId    String
+  providerId String
+  isVerified Boolean  @default(false)
+  verifiedAt DateTime?
+  model      Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, providerId])
+  @@index([providerId])
+}
+
+model Pricing {
+  id         String   @id @default(cuid())
+  modelId    String
+  providerId String?
+  inputPerM  Decimal  @db.Decimal(12, 6)
+  outputPerM Decimal  @db.Decimal(12, 6)
+  currency   String   @default("USD")
+  unit       String   @default("million_tokens")
+  sourceUrl  String?
+  verifiedAt DateTime?
+  isDemo     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  model      Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@index([inputPerM])
+  @@index([outputPerM])
+}
+
+model Capability {
+  id     String           @id @default(cuid())
+  name   String           @unique
+  slug   String           @unique
+  kind   String
+  models ModelCapability[]
+}
+
+model ModelCapability {
+  modelId      String
+  capabilityId String
+  model        Model      @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, capabilityId])
+  @@index([capabilityId])
+}
+
+model Benchmark {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  category    String
+  description String
+  scale       String
+  sourceUrl   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  modelScores ModelBenchmark[]
+
+  @@index([category])
+}
+
+model ModelBenchmark {
+  id             String    @id @default(cuid())
+  modelId        String
+  benchmarkId    String
+  score          Decimal   @db.Decimal(10, 4)
+  rank           Int?
+  sourceUrl      String?
+  isVerified     Boolean   @default(false)
+  isDemo         Boolean   @default(true)
+  lastUpdatedAt  DateTime  @default(now())
+  model          Model     @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  benchmark      Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, benchmarkId])
+  @@index([benchmarkId, score])
+  @@index([modelId])
+}
